@@ -20,7 +20,7 @@ def preprocess(contrib_cleaned):
     return contrib_cleaned
 
 
-def extract_features(path_to_data):
+def extract_features_table_from_contributors(path_to_data):
     data = pd.read_csv(path_to_data)
     contributors = preprocess(data)
 
@@ -28,7 +28,7 @@ def extract_features(path_to_data):
     contributors['npo_accnt_status_date'] = pd.to_datetime(contributors['npo_accnt_status_date'])
     contributors['npo_lst_pmnt_date'] = pd.to_datetime(contributors['npo_lst_pmnt_date'])
     contributors['npo_frst_pmnt_date'] = pd.to_datetime(contributors['npo_frst_pmnt_date'])
-    
+
     features_for_ts = contributors.groupby(["clnt_id", "date"]).agg(
         {
             'npo_accnt_id' : 'nunique',
