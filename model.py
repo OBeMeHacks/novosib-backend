@@ -22,6 +22,7 @@ def preprocess(contrib_cleaned):
 
 def extract_features_table_from_contributors(path_to_data):
     data = pd.read_csv(path_to_data)
+
     contributors = preprocess(data)
 
     contributors['date'] =  pd.to_datetime(contributors['npo_accnt_status_date']).dt.to_period('Q')
@@ -29,18 +30,24 @@ def extract_features_table_from_contributors(path_to_data):
     contributors['npo_lst_pmnt_date'] = pd.to_datetime(contributors['npo_lst_pmnt_date'])
     contributors['npo_frst_pmnt_date'] = pd.to_datetime(contributors['npo_frst_pmnt_date'])
 
-    features_for_ts = contributors.groupby(["clnt_id", "date"]).agg(
+    features = contributors.groupby(["date"]).agg(
         {
             'npo_accnt_id' : 'nunique',
-            'npo_accnt_status_date' : 'max',
+            'npo_accnt_status_date' : ['min', 'max'],
             'npo_pmnts_sum' : 'sum',
             'npo_pmnts_nmbr' : 'sum',
-            'npo_frst_pmnt_date' : 'min',
-            'npo_lst_pmnt_date' : 'max',
             'npo_ttl_incm' : 'sum',
+
         }
     )
-    return features_for_ts
+    features = [
+        'number_acounts',
+        'min_payment_date',
+        'max_payment_date',
+        'payments_sum',
+        'payments_count',
+        'total_income']
+    return features.sort_values(by='date', ascending=False)
 
 
 def get_target(path_to_target):
@@ -65,7 +72,7 @@ class ClientFeatureExtractor:
 
 
     def extract_user_table_(self, data, client_id):
-        data[]
+        return data[data['clnt_id'] == client_id].drop(columns=['clnt_id'], axis=1)
     
     def get_features_values(self, client_id):
         return self.features_next_quarter[client_id]
