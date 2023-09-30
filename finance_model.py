@@ -123,7 +123,6 @@ class Model:
             
         else:
             self.data = pd.read_feather('data/full_base.frt')
-            print(self.data)
             X_train = self.data.drop(['quarter', 'clnt_id', 'transactions_count', 'paid_avg_correct'], axis=1)
             y_train_mean = self.data['paid_avg_correct']
             y_train_count = self.data['transactions_count']
@@ -136,12 +135,9 @@ class Model:
             X=X_train,
             y=y_train_count,
         )
-        print(X_train)
 
     def get_train_data(self, clients):
         self.internal_features['date'] = self.internal_features['date'].astype(str)
-        print(self.internal_features['date'])
-        print(self.target['date'])
         merged = pd.merge(self.target, self.internal_features, on='date')
         all_merged = pd.merge(merged, clients, on='clnt_id')
 
@@ -171,14 +167,13 @@ class Model:
                     pd.DataFrame(features).reset_index(drop=True),
                     self.clients[self.clients['clnt_id'] == client_id].reset_index(drop=True), 
                 ], axis=1)
-            print(features)
             if not features['clnt_id'][0]:
                 raise RuntimeError("ClientNotFound")
             features = features.drop(['pstl_code'], axis=1)
         else:
             features = self.data[(self.data['clnt_id'] == client_id) & (self.data['quarter'] == '2023Q2')].drop(['quarter', 'clnt_id', 'transactions_count', 'paid_avg_correct'], axis=1)
-            print(features)
         return int(self.model_mean.predict(features.reset_index(drop=True))[0]), int(self.model_count.predict(features.reset_index(drop=True))[0])
+
 
 
     
