@@ -2,7 +2,7 @@ from aiohttp import web
 import json
 
 async def predict(request):
-    data = {"param1" : 1.23, "param2" : 10}
+    data = {"contributionMoney" : 10000, "contributionsNumber" : 10}
     return web.json_response(data, headers={
         "Access-Control-Allow-Origin" : "*",
     }, status=200)

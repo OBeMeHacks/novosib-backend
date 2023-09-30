@@ -1,14 +1,12 @@
 import numpy as np
 import pandas as pd
 from catboost import Pool, CatBoostRegressor
-
-
 import datetime
-import sklearn
 import typing as tp
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import GradientBoostingRegressor
+
 
 
 X_type = tp.NewType("X_type", np.ndarray)
@@ -16,6 +14,7 @@ X_row_type = tp.NewType("X_row_type", np.ndarray)
 Y_type = tp.NewType("Y_type", np.array)
 TS_type = tp.NewType("TS_type", pd.Series)
 Model_type = tp.TypeVar("Model_type")
+
 
 
 
@@ -76,6 +75,31 @@ def build_datasets(
     return datasets
 
 
+def train_models(
+        train_timeseries: TS_type,
+        model_count: int
+    ) -> tp.List[Model_type]:
+        """
+        Функция для получения обученных моделей
+        
+        Args:
+            train_timeseries --- обучающий временной ряд
+            model_count --- количество моделей для обучения согласно гибридной схеме.
+                            Прогнозирование должно выполняться на model_count дней вперёд
+
+        Returns:
+            Список из len(datasets) обученных моделей
+        """
+        models = []
+
+        datasets = build_datasets(train_timeseries, extract_hybrid_strategy_features, 7, model_count)
+        for train, target in datasets:
+            models.append(GradientBoostingRegressor().fit(train, target))
+        
+        assert len(models) == len(datasets)
+        return models
+
+
 def predict(
     timeseries: TS_type,
     models: tp.List[Model_type],
@@ -105,50 +129,52 @@ def predict(
     return timeseries[-len(models):]
 
 
+
+class ClientFeatureExtractor:
+    def __init__(self, path_to_data):
+        self.all_client_ids = open(path_to_data + '/client_ids').read().split()
+        self.data = {
+            client_id: self.extract_user_table_(path_to_data, client_id) 
+            for client_id in self.all_client_ids
+            }
+        self.features_next_quarter = dict()
+        self.feature_columns = df.columns
+        for client_id, df in self.data.items():
+            result = dict()
+            for column in df.columns:
+                ts = df[column]
+                result[column] = predict(ts, train_models(ts)[0])[0]
+            self.features_next_quarter[client_id] = result
+
+
+    def extract_user_table_(self, path, client_id):
+        return pd.read_csv(path + '/' + client_id + '.csv')
+    
+    def get_features_values(self, client_id):
+        return self.features_next_quarter[client_id]
+
+
 class Model:
 
     def __init__(self,
                  path_to_external_data,
                  path_to_target,
                  path_to_internal_data):
+        self.client_feature_extractor = ClientFeatureExtractor(path_to_internal_data)
         self.data_train = pd.read_csv(path_to_external_data)
         self.target = pd.read_csv(path_to_target)
-        self.data_time_series = self.extract_time_series_(path_to_internal_data)
-        self.ts_predictions = {
-            feature_name : predict(ts, self.train_models(ts)[0]) 
-            for feature_name, ts in self.data_time_series
-        }
+        self.model = CatBoostRegressor().fit(
+            self.data_train,
+            self.target,
+        )
+
+    def predict(self, client_id, override_features):
+        features = self.client_feature_extractor.get_features_values[client_id]
+        features.update(override_features)
+        return self.model.predict(features)
 
 
-    def train_models(
-        train_timeseries: TS_type,
-        model_count: int
-    ) -> tp.List[Model_type]:
-        """
-        Функция для получения обученных моделей
-        
-        Args:
-            train_timeseries --- обучающий временной ряд
-            model_count --- количество моделей для обучения согласно гибридной схеме.
-                            Прогнозирование должно выполняться на model_count дней вперёд
-
-        Returns:
-            Список из len(datasets) обученных моделей
-        """
-        models = []
-
-        datasets = build_datasets(train_timeseries, extract_hybrid_strategy_features, 7, model_count)
-        for train, target in datasets:
-            models.append(GradientBoostingRegressor().fit(train, target))
-        
-        assert len(models) == len(datasets)
-        return models
     
-    def extract_time_series_(path_to_internal_data):
-        data = pd.read_csv(path_to_internal_data)
-        data.set_index("date")
-        return {"feature" : data["feature"]}
-
 
 
 
